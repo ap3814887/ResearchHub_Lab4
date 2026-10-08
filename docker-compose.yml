@@ -1,0 +1,103 @@
+name: researchhub-lab4
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./database/02_constraints.sql:/docker-entrypoint-initdb.d/02_constraints.sql:ro
+      - ./database/03_functions_users.sql:/docker-entrypoint-initdb.d/03_functions_users.sql:ro
+      - ./database/04_functions_projects.sql:/docker-entrypoint-initdb.d/04_functions_projects.sql:ro
+      - ./database/05_functions_tasks.sql:/docker-entrypoint-initdb.d/05_functions_tasks.sql:ro
+      - ./database/06_views.sql:/docker-entrypoint-initdb.d/06_views.sql:ro
+      - ./database/07_indexes.sql:/docker-entrypoint-initdb.d/07_indexes.sql:ro
+      - ./database/08_seed.sql:/docker-entrypoint-initdb.d/08_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend/ResearchHub.Api
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__Key: ${JWT_KEY}
+      Jwt__LifetimeMinutes: 60
+      Jwt__DemoPassword: ${JWT_DEMO_PASSWORD}
+      Cors__Origins__0: http://localhost:${FRONTEND_PORT}
+    ports:
+      - "${BACKEND_PORT}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "${FRONTEND_PORT}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+
+  # Отдельная тестовая БД. Запускается только при --profile test.
+  postgres-test:
+    profiles: ["test"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_TEST_DB}
+      POSTGRES_USER: ${POSTGRES_TEST_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_TEST_PASSWORD}
+    ports:
+      - "${POSTGRES_TEST_PORT}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./database/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./database/02_constraints.sql:/docker-entrypoint-initdb.d/02_constraints.sql:ro
+      - ./database/03_functions_users.sql:/docker-entrypoint-initdb.d/03_functions_users.sql:ro
+      - ./database/04_functions_projects.sql:/docker-entrypoint-initdb.d/04_functions_projects.sql:ro
+      - ./database/05_functions_tasks.sql:/docker-entrypoint-initdb.d/05_functions_tasks.sql:ro
+      - ./database/06_views.sql:/docker-entrypoint-initdb.d/06_views.sql:ro
+      - ./database/07_indexes.sql:/docker-entrypoint-initdb.d/07_indexes.sql:ro
+      - ./database/08_seed.sql:/docker-entrypoint-initdb.d/08_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_TEST_USER} -d ${POSTGRES_TEST_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  postgres-data:

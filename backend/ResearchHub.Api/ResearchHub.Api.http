@@ -1,0 +1,66 @@
+@baseUrl = http://localhost:5082
+@token = PASTE_JWT_HERE
+
+### Health check PostgreSQL
+GET {{baseUrl}}/health/postgres
+
+### JWT token (after setting Jwt:DemoPassword = lab2-demo-password)
+POST {{baseUrl}}/api/auth/token
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "password": "lab2-demo-password"
+}
+
+### GET users with pagination
+GET {{baseUrl}}/api/users?page=1&pageSize=3
+
+### GET project tasks with DB filters + pagination
+GET {{baseUrl}}/api/projects/1/tasks?status=InProgress&priority=High&page=1&pageSize=10
+
+### Create project (requires Bearer token)
+POST {{baseUrl}}/api/projects
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "API Test Project",
+  "description": "Created from HTTP file",
+  "ownerId": 1
+}
+
+### Duplicate member -> expected 409 Conflict
+POST {{baseUrl}}/api/projects/1/members
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "role": "Member"
+}
+
+### Invalid assignee -> expected 400 Bad Request (user 5 is not member of project 1 in seed)
+POST {{baseUrl}}/api/tasks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "projectId": 1,
+  "title": "Invalid assignee test",
+  "description": "Business rule comes from PostgreSQL",
+  "assigneeId": 5,
+  "status": "New",
+  "priority": "Normal",
+  "dueDate": "2026-12-01"
+}
+
+### Change task status
+PATCH {{baseUrl}}/api/tasks/4/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "status": "InProgress" }
+
+### Project status statistics
+GET {{baseUrl}}/api/projects/1/task-stats

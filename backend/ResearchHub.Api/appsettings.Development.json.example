@@ -1,0 +1,15 @@
+{
+  "ConnectionStrings": {
+    "Default": "Host=localhost;Port=5432;Database=researchhub;Username=researchhub;Password=<SET_IN_ENVIRONMENT>"
+  },
+  "Jwt": {
+    "Issuer": "ResearchHub.Api",
+    "Audience": "ResearchHub.Client",
+    "Key": "<AT_LEAST_32_CHARACTERS>",
+    "LifetimeMinutes": 60,
+    "DemoPassword": "<LAB_DEMO_PASSWORD>"
+  },
+  "Cors": {
+    "Origins": [ "http://localhost:5173", "http://localhost:8080" ]
+  }
+}
